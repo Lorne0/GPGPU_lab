@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstdlib>
+#include <time.h>
 #include "SyncedMemory.h"
 #include "lab1.h"
 using namespace std;
@@ -15,6 +16,9 @@ using namespace std;
 
 int main(int argc, char **argv)
 {
+	unsigned seed = (unsigned)time(NULL);
+	srand(seed);
+
 	Lab1VideoGenerator g;
 	Lab1VideoInfo i;
 
