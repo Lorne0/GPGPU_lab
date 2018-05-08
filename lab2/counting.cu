@@ -21,6 +21,65 @@ void CountPosition1(const char *text, int *pos, int text_size){
 	thrust::inclusive_scan_by_key(dpos, dpos+text_size, dpos, dpos);
 }
 
-void CountPosition2(const char *text, int *pos, int text_size)
-{
+__global__ void InBlock(const char *text, int *pos, int *a, int text_size){
+	const int idx = blockIdx.x*blockDim.x+threadIdx.x;
+	const int tid = threadIdx.x;
+	// change all to 01
+	if(idx<text_size){
+		pos[idx] = (text[idx] == '\n')? 0:1;
+		a[idx] = pos[idx];
+	}
+	__syncthreads();
+	
+	
+	if(idx<text_size){
+		for(int i=0;i<=9;i++){
+			int check_len = 1<<i;
+			if(tid>=check_len && pos[idx]>=check_len)
+				a[idx] += pos[idx-check_len];
+			__syncthreads();
+
+			if(tid>=check_len && pos[idx]>=check_len)
+				pos[idx] = a[idx];
+			__syncthreads();
+		}
+	}
+	
 }
+
+__global__ void Block_Merge(const char *text, int *pos, int text_size, int block_size){
+	const int idx = blockIdx.x*blockDim.x+threadIdx.x;
+	const int tid = threadIdx.x;
+	if(blockIdx.x>0){
+		if(tid<500 && (tid+1)==pos[idx]){
+			pos[idx] += pos[(blockIdx.x-1)*blockDim.x+block_size-1];
+		}
+	}
+
+}
+
+void CountPosition2(const char *text, int *pos, int text_size){
+	int block_size = 1024;
+	int block_num = CeilDiv(text_size, block_size);
+	int *a;
+	cudaMalloc(&a, sizeof(int)*text_size);
+	InBlock<<<block_num, block_size>>>(text, pos, a, text_size);
+	Block_Merge<<<block_num, block_size>>>(text, pos, text_size, block_size);
+}
+
+/*
+0 1 1 1
+0 1 2 2 
+0 1 2 3
+
+0 1 1 1 1 1
+0 1 2 2 2 2
+0 1 2 3 4 4
+0 1 2 3 4 5
+
+*/
+
+
+
+
+
